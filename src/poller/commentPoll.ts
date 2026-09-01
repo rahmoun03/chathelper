@@ -39,6 +39,9 @@ export async function pollComments(rt: Runtime, db: D1Database): Promise<void> {
     }
     for (const c of comments) {
       const igsid = c.from?.id;
+      if (igsid === rt.igUserId) {
+        continue;
+      }
       if (!igsid) {
         // Meta's Graph API omits `from.id` for some commenters (permissions/visibility vary by
         // account); without it we can't correlate a later DM reply, so the comment is unreachable.
