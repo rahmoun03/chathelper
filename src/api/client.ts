@@ -244,12 +244,52 @@ export class InstagramClient {
   // ---- reads ----
 
   /** Read comments on a media object. Only called for media attached to an active campaign. */
-  async getComments(mediaId: string, limit = 50): Promise<IgComment[]> {
-    const res = await this.get<{ data?: IgComment[] }>(`/${mediaId}/comments`, {
-      fields: "id,text,timestamp,username,from{id,username}",
-      limit: String(limit),
-    });
-    return res.data ?? [];
+  async getComments(
+    mediaId: string,
+    pageSize = 50,
+    maxPages = 10,
+  ): Promise<IgComment[]> {
+    const comments: IgComment[] = [];
+    let after: string | undefined;
+
+    for (let page = 0; page < maxPages; page++) {
+      const params: Record<string, string> = {
+        fields: "id,text,timestamp,username,from{id,username}",
+        limit: String(pageSize),
+      };
+
+      if (after) {
+        params.after = after;
+      }
+
+      const res = await this.get<{
+        data?: IgComment[];
+        paging?: {
+          cursors?: {
+            after?: string;
+          };
+          next?: string;
+        };
+      }>(`/${mediaId}/comments`, params);
+
+      const pageComments = res.data ?? [];
+      comments.push(...pageComments);
+
+      const nextAfter = res.paging?.cursors?.after;
+
+      if (
+        pageComments.length === 0 ||
+        !res.paging?.next ||
+        !nextAfter ||
+        nextAfter === after
+      ) {
+        break;
+      }
+
+      after = nextAfter;
+    }
+
+    return comments;
   }
 
   /** Read recent conversations + their messages (how inbound taps/replies arrive without webhooks). */
